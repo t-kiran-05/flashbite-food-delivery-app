@@ -69,7 +69,7 @@ project-delivery/
 │   ├── components/             # Reusable UI components
 │   └── lib/                    # API client, Socket singleton, and Auth helpers
 │
-├── merged-backend/             # Express.js Microservices Backend
+├── flashbite-backend/             # Express.js Microservices Backend
 │   ├── src/
 │   │   ├── config/             # Database & infrastructure configuration
 │   │   ├── middleware/         # JWT authentication, role guards & tenant scoping
@@ -96,7 +96,7 @@ You can run FlashBite using either **Option 1 (Cloud Services)** or **Option 2 (
 
 #### 1. Backend Setup
 ```bash
-cd merged-backend
+cd flashbite-backend
 npm install
 
 # Copy environment template
@@ -122,6 +122,8 @@ KAFKA_SSL=true
 KAFKA_SASL_USERNAME=avnadmin
 KAFKA_SASL_PASSWORD=your_aiven_password
 KAFKA_SASL_MECHANISM=scram-sha-256
+
+GEMINI_API_KEY=
 ```
 
 Seed initial database demo data:
@@ -133,7 +135,7 @@ npm run seed
 Start the backend:
 ```bash
 npm run dev
-# Backend runs at http://localhost:5000
+# Backend runs at http://localhost:4000/health
 ```
 
 #### 2. Frontend Setup
@@ -157,7 +159,7 @@ docker compose up --build
 ```
 
 #### Services Spawned:
-- **Express API Backend**: `http://localhost:5000`
+- **Express API Backend**: ` http://localhost:4000/health`
 - **MongoDB**: `localhost:27017`
 - **Redis**: `localhost:6379`
 - **Apache Kafka (KRaft Mode)**: `localhost:9092`
@@ -182,58 +184,6 @@ After running `npm run seed`:
 | **Customer** | Self-register at `/login` | Min 8 characters | Select `fb-demo0001` |
 
 ---
-
-## ☁️ Cloud Deployment Guide
-
-### Deploying Backend to Render
-
-1. Create a **Web Service** on [Render](https://render.com).
-2. Connect your GitHub repository and set **Root Directory** to `merged-backend`.
-3. Set environment settings:
-   - **Environment**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-4. Add the following **Environment Variables** in Render:
-   - `NODE_ENV`: `production`
-   - `PORT`: `5000` (Render will bind dynamically)
-   - `MONGO_URI`: Your MongoDB Atlas URI
-   - `REDIS_URL`: Your Upstash Redis `rediss://...` connection string
-   - `KAFKA_BROKERS`: Your Aiven Kafka broker address
-   - `KAFKA_SSL`: `true`
-   - `KAFKA_SASL_USERNAME`: Your Aiven username
-   - `KAFKA_SASL_PASSWORD`: Your Aiven password
-   - `JWT_SECRET`: A secure 64-character random string
-   - `CLIENT_URL`: `https://your-frontend.vercel.app`
-
----
-
-### Deploying Frontend to Vercel
-
-1. Import your repository on [Vercel](https://vercel.com).
-2. Set **Root Directory** to `flashbite-frontend`.
-3. Framework Preset: **Next.js**.
-4. Configure **Environment Variables**:
-   - `NEXT_PUBLIC_API_URL`: `https://your-backend.onrender.com`
-5. Click **Deploy**.
-
----
-
-## 🛠️ Operational & Database Utilities
-
-Inside `merged-backend/`:
-```bash
-# Seed Super Admin user
-npm run seed:admin
-
-# Seed Demo Restaurant + 12 Menu Items
-npm run seed:menu
-
-# Seed both admin and menu
-npm run seed
-
-# Wipe test orders and reset restaurant counters
-npm run clear:orders
-```
 
 ---
 
