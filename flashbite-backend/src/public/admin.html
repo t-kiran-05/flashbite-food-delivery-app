@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────────── */
+    :root {
+      --bg-primary:    #0f172a;
+      --bg-card:       #1e293b;
+      --bg-card-hover: #243147;
+      --accent:        #f97316;
+      --accent-hover:  #ea6c0a;
+      --accent-glow:   rgba(249,115,22,0.15);
+      --border:        #334155;
+      --border-light:  #475569;
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #64748b;
+      --success:       #10b981;
+      --warning:       #f59e0b;
+      --danger:        #ef4444;
+      --info:          #3b82f6;
+      --radius:        12px;
+      --radius-sm:     8px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.4);
+      --shadow-accent: 0 0 24px rgba(249,115,22,0.2);
+      --transition:    all 0.2s ease;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font);
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ─────────────────────────────────────────────────── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 64px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-left { display: flex; align-items: center; gap: 14px; }
+    .nav-right{ display: flex; align-items: center; gap: 14px; }
+    .nav-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .super-admin-badge {
+      background: rgba(239,68,68,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 50px;
+      padding: 3px 12px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    /* ── Real-time clock ────────────────────────────────────────── */
+    .clock {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      transition: var(--transition);
+    }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Page Body ──────────────────────────────────────────────── */
+    .page { padding: 28px; max-width: 1600px; margin: 0 auto; }
+
+    /* ── KPI Stats Bar ──────────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transition: var(--transition);
+    }
+    .kpi-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+    .kpi-icon { font-size: 2rem; line-height: 1; }
+    .kpi-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 3px; font-weight: 600; }
+
+    /* ── Two-Column Row ─────────────────────────────────────────── */
+    .mid-row {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Card ───────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .card-title { font-size: 1.05rem; font-weight: 700; }
+
+    /* ── Live Badge ─────────────────────────────────────────────── */
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--success);
+    }
+    .live-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse-live 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── Table ──────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    thead th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 10px 12px;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      transition: var(--transition);
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody tr:last-child { border-bottom: none; }
+    td {
+      padding: 13px 12px;
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+    .branch-name { font-weight: 700; color: var(--text-primary); }
+    .tenant-id-cell {
+      font-family: 'Courier New', monospace;
+      font-size: 0.76rem;
+      color: var(--info);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tenant-id-cell:hover { text-decoration: underline; }
+    .status-active { color: var(--success); font-weight: 700; font-size: 0.82rem; }
+    .status-inactive{ color: var(--danger); font-weight: 700; font-size: 0.82rem; }
+    .btn-toggle {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.78rem;
+      transition: var(--transition);
+    }
+    .btn-toggle:hover { border-color: var(--border-light); color: var(--text-secondary); }
+
+    /* ── Table States ───────────────────────────────────────────── */
+    .table-loading, .table-empty, .table-error {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .table-error { color: var(--danger); }
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Order Stream ───────────────────────────────────────────── */
+    .stream-list {
+      height: 360px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stream-list::-webkit-scrollbar { width: 4px; }
+    .stream-list::-webkit-scrollbar-track { background: transparent; }
+    .stream-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .stream-item {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      animation: slide-from-right 0.3s ease;
+    }
+    @keyframes slide-from-right {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .stream-item.created { border-left-color: var(--accent); }
+    .stream-item.updated { border-left-color: var(--info); }
+    .stream-ts {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .branch-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-radius: 50px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+    .order-ref {
+      font-family: 'Courier New', monospace;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    .stream-empty {
+      text-align: center;
+      padding: 60px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    /* ── Status Badge ───────────────────────────────────────────── */
+    .sbadge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      border-radius: 50px;
+      padding: 2px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-received  { background: rgba(59,130,246,0.15);  color: var(--info); }
+    .badge-preparing { background: rgba(245,158,11,0.15);  color: var(--warning); }
+    .badge-delivery  { background: rgba(249,115,22,0.15);  color: var(--accent); }
+    .badge-delivered { background: rgba(16,185,129,0.15);  color: var(--success); }
+
+    /* ── Event Terminal ─────────────────────────────────────────── */
+    .terminal-card { margin-bottom: 8px; }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .terminal-title { font-size: 1.05rem; font-weight: 700; }
+    .btn-clear {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.78rem;
+      transition: var(--transition);
+    }
+    .btn-clear:hover { border-color: var(--border-light); color: var(--text-secondary); }
+
+    .terminal-window {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 16px;
+      height: 280px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+    .terminal-window::-webkit-scrollbar { width: 4px; }
+    .terminal-window::-webkit-scrollbar-track { background: transparent; }
+    .terminal-window::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .terminal-line { display: block; }
+    .ts  { color: #475569; }
+    .tag-kafka  { color: #f97316; }
+    .tag-redis  { color: #10b981; }
+    .tag-socket { color: #3b82f6; }
+    .tag-error  { color: #ef4444; }
+    .tag-info   { color: #94a3b8; }
+    .msg        { color: #cbd5e1; }
+
+    .terminal-empty { color: #334155; font-style: italic; }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 1200px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .mid-row   { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .stats-bar { grid-template-columns: 1fr; }
+      .page { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAVBAR
+═══════════════════════════════════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="nav-left">
+    <span class="nav-logo">⚡ FlashBite Admin</span>
+    <span class="super-admin-badge">Super Admin</span>
+  </div>
+  <div class="nav-right">
+    <span class="clock" id="clock">—</span>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ── Row 1: KPI Stats ──────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="kpi-card">
+      <div class="kpi-icon">🏪</div>
+      <div>
+        <div class="kpi-value" id="kpi-branches">—</div>
+        <div class="kpi-label">Total Branches</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">⚡</div>
+      <div>
+        <div class="kpi-value" id="kpi-active">—</div>
+        <div class="kpi-label">Active Branches</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">📦</div>
+      <div>
+        <div class="kpi-value" id="kpi-total-orders">—</div>
+        <div class="kpi-label">Total Orders</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🟢</div>
+      <div>
+        <div class="kpi-value" id="kpi-live">0</div>
+        <div class="kpi-label">Live Orders</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: Table + Stream ────────────────────────────────── -->
+  <div class="mid-row">
+
+    <!-- Branch Overview Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🏪 Branch Overview</span>
+        <span style="font-size:0.78rem;color:var(--text-muted)">Auto-refreshes every 30s</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Branch Name</th>
+              <th>Tenant ID</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Orders (DB)</th>
+              <th>Live Count</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="branches-tbody">
+            <tr>
+              <td colspan="7">
+                <div class="table-loading">
+                  <div class="loading-spinner"></div>
+                  Loading branches…
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Live Order Stream -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📡 Live Order Stream</span>
+        <div class="live-badge"><div class="dot"></div> LIVE</div>
+      </div>
+      <div class="stream-list" id="stream-list">
+        <div class="stream-empty">Waiting for orders…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Row 3: Event Terminal ────────────────────────────────── -->
+  <div class="card terminal-card">
+    <div class="terminal-header">
+      <span class="terminal-title">💻 Event Terminal</span>
+      <button class="btn-clear" onclick="clearTerminal()">Clear</button>
+    </div>
+    <div class="terminal-window" id="terminal">
+      <span class="terminal-line terminal-empty"># Waiting for telemetry events…</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* ─────────────────────────────────────────────────────────────────
+     AUTH GUARD
+  ───────────────────────────────────────────────────────────────── */
+  const token = localStorage.getItem('fb_token');
+  const user  = JSON.parse(localStorage.getItem('fb_user') || 'null');
+
+  if (!token || !user || user.role !== 'SUPER_ADMIN') {
+    window.location.href = '/login.html';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     STATE
+  ───────────────────────────────────────────────────────────────── */
+  let liveOrderCount = 0;   // incremented via Socket.IO
+  let streamItems    = [];  // max 50 items in the live stream
+  const MAX_STREAM   = 50;
+  const MAX_TERMINAL = 200; // max terminal lines kept
+
+  /* ─────────────────────────────────────────────────────────────────
+     REAL-TIME CLOCK
+  ───────────────────────────────────────────────────────────────── */
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString([], {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  /* ─────────────────────────────────────────────────────────────────
+     HELPERS
+  ───────────────────────────────────────────────────────────────── */
+  function fmtTime(date) {
+    return (date || new Date()).toLocaleTimeString([], {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+
+  function statusBadgeClass(status) {
+    const map = {
+      'ORDER_RECEIVED':   'badge-received',
+      'RECEIVED':         'badge-received',
+      'PREPARING':        'badge-preparing',
+      'OUT_FOR_DELIVERY': 'badge-delivery',
+      'DELIVERED':        'badge-delivered',
+    };
+    return map[status] || 'badge-received';
+  }
+
+  function statusLabel(status) {
+    const map = {
+      'ORDER_RECEIVED':   'Received',
+      'RECEIVED':         'Received',
+      'PREPARING':        'Preparing',
+      'OUT_FOR_DELIVERY': 'Delivery',
+      'DELIVERED':        'Delivered',
+    };
+    return map[status] || status;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     BRANCHES TABLE
+  ───────────────────────────────────────────────────────────────── */
+  async function loadBranches() {
+    const tbody = document.getElementById('branches-tbody');
+
+    // Show loading state
+    tbody.innerHTML = `
+      <tr><td colspan="7">
+        <div class="table-loading">
+          <div class="loading-spinner"></div>
+          Loading branches…
+        </div>
+      </td></tr>
+    `;
+
+    try {
+      const res = await fetch('/api/admin/branches', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        tbody.innerHTML = `
+          <tr><td colspan="7">
+            <div class="table-error">❌ ${data.error || 'Failed to load branches (status ' + res.status + ')'}</div>
+          </td></tr>
+        `;
+        return;
+      }
+
+      const data     = await res.json();
+      const branches = data.branches || data || [];
+
+      // Update KPIs from branch data
+      const totalBranches  = branches.length;
+      const activeBranches = branches.filter(b => b.isActive).length;
+      const totalOrders    = branches.reduce((s, b) => s + (b.totalOrdersCount || 0), 0);
+
+      document.getElementById('kpi-branches').textContent     = totalBranches;
+      document.getElementById('kpi-active').textContent       = activeBranches;
+      document.getElementById('kpi-total-orders').textContent = totalOrders.toLocaleString();
+
+      // Empty state
+      if (branches.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="7">
+            <div class="table-empty">No branches registered yet.</div>
+          </td></tr>
+        `;
+        return;
+      }
+
+      // Render rows
+      tbody.innerHTML = branches.map(branch => `
+        <tr>
+          <td><span class="branch-name">${escHtml(branch.name || branch.branchName || '—')}</span></td>
+          <td>
+            <span class="tenant-id-cell" onclick="copyToClipboard('${escHtml(branch.tenantId || '')}')"
+              title="Click to copy">
+              ${escHtml(branch.tenantId || '—')}
+            </span>
+          </td>
+          <td style="color:var(--text-secondary)">${escHtml(branch.location || branch.city || '—')}</td>
+          <td>
+            ${branch.isActive
+              ? `<span class="status-active">● Active</span>`
+              : `<span class="status-inactive">● Inactive</span>`}
+          </td>
+          <td style="font-variant-numeric:tabular-nums">${(branch.totalOrdersCount || 0).toLocaleString()}</td>
+          <td style="font-variant-numeric:tabular-nums;color:var(--info)">${(branch.liveOrderCount || 0).toLocaleString()}</td>
+          <td>
+            <button class="btn-toggle" onclick="toggleBranch('${escHtml(branch.tenantId || '')}', ${!branch.isActive})">
+              Toggle
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+    } catch (err) {
+      tbody.innerHTML = `
+        <tr><td colspan="7">
+          <div class="table-error">❌ Network error: ${err.message}</div>
+        </td></tr>
+      `;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     TOGGLE BRANCH STATUS (stub — fires API call)
+  ───────────────────────────────────────────────────────────────── */
+  async function toggleBranch(tenantId, newActive) {
+    if (!tenantId) return;
+    try {
+      const res = await fetch(`/api/admin/branches/${tenantId}`, {
+        method:  'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ isActive: newActive })
+      });
+      if (res.ok) loadBranches(); // refresh table
+    } catch (e) { /* silent — table refresh will reflect real state */ }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     COPY TENANT ID TO CLIPBOARD
+  ───────────────────────────────────────────────────────────────── */
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      appendTerminalLine({ tag: 'INFO', message: `Copied tenant ID to clipboard: ${text}` });
+    }).catch(() => {});
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     AUTO-REFRESH every 30 seconds
+  ───────────────────────────────────────────────────────────────── */
+  setInterval(loadBranches, 30000);
+
+  /* ─────────────────────────────────────────────────────────────────
+     LIVE ORDER STREAM
+  ───────────────────────────────────────────────────────────────── */
+  function prependOrderToStream(data) {
+    const list = document.getElementById('stream-list');
+
+    // Remove empty-state placeholder
+    const empty = list.querySelector('.stream-empty');
+    if (empty) empty.remove();
+
+    const eventType = (data.eventType || 'created').toLowerCase(); // 'created' | 'updated'
+    const ts        = fmtTime(data.timestamp ? new Date(data.timestamp) : new Date());
+    const branchTag = data.tenantId ? data.tenantId.slice(-6).toUpperCase() : '——';
+    const orderId   = data.orderId  ? data.orderId.slice(-8).toUpperCase()  : '——';
+    const status    = data.status || 'ORDER_RECEIVED';
+
+    const el = document.createElement('div');
+    el.className = `stream-item ${eventType}`;
+    el.innerHTML = `
+      <span class="stream-ts">${ts}</span>
+      <span class="branch-tag">${branchTag}</span>
+      <span class="order-ref">#${orderId}</span>
+      <span class="sbadge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
+    `;
+
+    list.prepend(el);
+
+    // Trim to MAX_STREAM items
+    while (list.children.length > MAX_STREAM) {
+      list.removeChild(list.lastChild);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     INCREMENT LIVE ORDER COUNT
+  ───────────────────────────────────────────────────────────────── */
+  function incrementLiveCount() {
+    liveOrderCount++;
+    document.getElementById('kpi-live').textContent = liveOrderCount;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     TERMINAL
+  ───────────────────────────────────────────────────────────────── */
+  function appendTerminalLine(log) {
+    const terminal = document.getElementById('terminal');
+
+    // Remove placeholder on first real line
+    const placeholder = terminal.querySelector('.terminal-empty');
+    if (placeholder) placeholder.remove();
+
+    const ts  = fmtTime();
+    const tag = (log.tag || 'INFO').toUpperCase();
+    const msg = escHtml(log.message || log.msg || JSON.stringify(log));
+
+    // Determine CSS class for tag
+    const tagClassMap = {
+      'KAFKA':  'tag-kafka',
+      'REDIS':  'tag-redis',
+      'SOCKET': 'tag-socket',
+      'ERROR':  'tag-error',
+      'INFO':   'tag-info',
+    };
+    const tagClass = tagClassMap[tag] || 'tag-info';
+
+    const line = document.createElement('span');
+    line.className = 'terminal-line';
+    line.innerHTML = `<span class="ts">[${ts}]</span> <span class="${tagClass}">[${tag}]</span> <span class="msg">${msg}</span>`;
+
+    terminal.appendChild(line);
+
+    // Auto-scroll to bottom
+    terminal.scrollTop = terminal.scrollHeight;
+
+    // Trim old lines to MAX_TERMINAL
+    const lines = terminal.querySelectorAll('.terminal-line:not(.terminal-empty)');
+    if (lines.length > MAX_TERMINAL) {
+      for (let i = 0; i < lines.length - MAX_TERMINAL; i++) {
+        terminal.removeChild(lines[i]);
+      }
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     CLEAR TERMINAL
+  ───────────────────────────────────────────────────────────────── */
+  function clearTerminal() {
+    const terminal = document.getElementById('terminal');
+    terminal.innerHTML = `<span class="terminal-line terminal-empty"># Terminal cleared at ${fmtTime()}</span>`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     HTML ESCAPE HELPER
+  ───────────────────────────────────────────────────────────────── */
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     SOCKET.IO
+  ───────────────────────────────────────────────────────────────── */
+  const socket = io({ auth: { token } });
+
+  // Connected — server auto-joins admin:global room for SUPER_ADMIN
+  socket.on('connect', () => {
+    appendTerminalLine({ tag: 'SOCKET', message: `Admin socket connected: ${socket.id}` });
+  });
+
+  // Disconnected
+  socket.on('disconnect', (reason) => {
+    appendTerminalLine({ tag: 'SOCKET', message: `Disconnected: ${reason}` });
+  });
+
+  // Connection error
+  socket.on('connect_error', (err) => {
+    appendTerminalLine({ tag: 'ERROR', message: `Socket connection error: ${err.message}` });
+  });
+
+  // New / updated order event from global admin room
+  socket.on('admin:order-stream', (data) => {
+    prependOrderToStream(data);
+    incrementLiveCount();
+    // Also log to terminal
+    appendTerminalLine({
+      tag: 'KAFKA',
+      message: `order:${data.eventType || 'event'} | tenant=${data.tenantId} | order=${data.orderId} | status=${data.status}`
+    });
+  });
+
+  // Telemetry log lines from backend
+  socket.on('admin:telemetry-log', (log) => {
+    appendTerminalLine(log);
+  });
+
+  /* ─────────────────────────────────────────────────────────────────
+     LOGOUT
+  ───────────────────────────────────────────────────────────────── */
+  function logout() {
+    localStorage.removeItem('fb_token');
+    localStorage.removeItem('fb_user');
+    window.location.href = '/login.html';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     INIT
+  ───────────────────────────────────────────────────────────────── */
+  loadBranches();
+
+  // Emit an initial terminal boot message
+  appendTerminalLine({ tag: 'INFO', message: 'Admin dashboard initialized. Awaiting events…' });
+</script>
+</body>
+</html>

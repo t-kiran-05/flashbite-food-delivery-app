@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4: Brand theme tokens ──────────────────────────────── */
+@theme {
+  --color-brand-bg:       #0f172a;
+  --color-brand-card:     #1e293b;
+  --color-brand-hover:    #243147;
+  --color-brand-accent:   #f97316;
+  --color-brand-accent-h: #ea6c0a;
+  --color-brand-border:   #334155;
+  --color-brand-border-l: #475569;
+  --color-brand-muted:    #64748b;
+  --color-brand-success:  #10b981;
+  --color-brand-warning:  #f59e0b;
+  --color-brand-danger:   #ef4444;
+  --color-brand-info:     #3b82f6;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
+
+  --animate-slide-in:  slideIn  0.3s ease;
+  --animate-slide-up:  slideUp  0.3s ease;
+  --animate-fade-in:   fadeIn   0.2s ease;
+  --animate-pulse-dot: pulseDot 1.5s ease infinite;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: #0f172a;
+  color: #f1f5f9;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ── Keyframes ─────────────────────────────────────────────────────── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Custom utility classes ────────────────────────────────────────── */
+.animate-slide-in  { animation: slideIn  0.3s ease; }
+.animate-slide-up  { animation: slideUp  0.3s ease; }
+.animate-fade-in   { animation: fadeIn   0.2s ease; }
+.animate-pulse-dot { animation: pulseDot 1.5s ease infinite; }
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ── Terminal window ───────────────────────────────────────────────── */
+.terminal {
+  background: #020617;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 16px;
+  height: 280px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}

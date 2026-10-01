@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg-primary:    #0f172a;
+      --bg-card:       #1e293b;
+      --bg-card-hover: #243147;
+      --accent:        #f97316;
+      --accent-hover:  #ea6c0a;
+      --accent-glow:   rgba(249,115,22,0.15);
+      --border:        #334155;
+      --border-light:  #475569;
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #64748b;
+      --success:       #10b981;
+      --warning:       #f59e0b;
+      --danger:        #ef4444;
+      --info:          #3b82f6;
+      --radius:        12px;
+      --radius-sm:     8px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.4);
+      --shadow-accent: 0 0 24px rgba(249,115,22,0.2);
+      --transition:    all 0.2s ease;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid Layout ────────────────────────────────────────────────── */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Left Hero Panel ────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1a2744 50%, #0f172a 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -120px; right: -120px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -80px; left: -80px;
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .hero-bolt {
+      font-size: 3rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 16px rgba(249,115,22,0.6));
+      animation: pulse-glow 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { filter: drop-shadow(0 0 16px rgba(249,115,22,0.6)); }
+      50%       { filter: drop-shadow(0 0 28px rgba(249,115,22,1));   }
+    }
+    .hero-name {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    .hero-tagline {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      margin-bottom: 48px;
+      font-weight: 500;
+    }
+
+    .feature-cards { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+    .feature-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 18px 20px;
+      transition: var(--transition);
+    }
+    .feature-card:hover {
+      background: rgba(255,255,255,0.055);
+      transform: translateX(4px);
+    }
+    .feature-card-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+    .feature-card-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .hero-powered {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero-powered span { color: var(--accent); font-weight: 600; }
+
+    /* ── Right Auth Panel ───────────────────────────────────────────── */
+    .auth-panel {
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .auth-wordmark {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 28px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Tab Switcher ───────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: var(--bg-primary);
+      border-radius: 50px;
+      padding: 4px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: var(--shadow-accent);
+    }
+
+    /* ── Form Fields ────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .input-wrap { position: relative; }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"] {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      transition: var(--transition);
+    }
+    input:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    input::placeholder { color: var(--text-muted); }
+
+    .pw-toggle {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      transition: var(--transition);
+    }
+    .pw-toggle:hover { color: var(--text-secondary); }
+    input[type="password"].has-toggle,
+    input[type="text"].has-toggle { padding-right: 44px; }
+
+    /* ── Primary Button ─────────────────────────────────────────────── */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 13px 24px;
+      width: 100%;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 700;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: var(--shadow-accent);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ── Spinner ────────────────────────────────────────────────────── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error Box ──────────────────────────────────────────────────── */
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── Account Type Radio ─────────────────────────────────────────── */
+    .radio-group {
+      display: flex;
+      background: var(--bg-primary);
+      border-radius: 50px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      gap: 4px;
+    }
+    .radio-pill input[type="radio"] { display: none; }
+    .radio-pill label {
+      display: block;
+      padding: 9px 16px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .radio-pill input:checked + label {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Conditional restaurant fields ─────────────────────────────── */
+    .restaurant-fields {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.25s ease;
+      margin-top: 0;
+    }
+    .restaurant-fields.open {
+      max-height: 200px;
+      opacity: 1;
+      margin-top: 0;
+    }
+
+    /* ── Forms Panel Transition ─────────────────────────────────────── */
+    .form-panel { display: none; }
+    .form-panel.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .split { grid-template-columns: 1fr; }
+      .hero { display: none; }
+      .auth-panel { padding: 24px 16px; min-height: 100vh; }
+      .auth-card { padding: 28px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="split">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       LEFT — HERO PANEL
+  ═══════════════════════════════════════════════════════════════════ -->
+  <div class="hero">
+    <div class="hero-brand">
+      <span class="hero-bolt">⚡</span>
+      <span class="hero-name">FlashBite</span>
+    </div>
+    <p class="hero-tagline">The Complete Restaurant Operations Platform</p>
+
+    <div class="feature-cards">
+      <div class="feature-card">
+        <div class="feature-card-title">⚡ Instant Dispatch</div>
+        <div class="feature-card-desc">Orders flow from customer to kitchen in milliseconds via Kafka event streaming.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">📡 Real-Time Tracking</div>
+        <div class="feature-card-desc">Live order status pushed to customers via Socket.IO WebSockets.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">📊 Branch Analytics</div>
+        <div class="feature-card-desc">Monitor all locations, order volumes and telemetry from one unified dashboard.</div>
+      </div>
+    </div>
+
+    <p class="hero-powered">
+      Powered by <span>Kafka</span> · <span>Redis</span> · <span>Socket.IO</span>
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       RIGHT — AUTH PANEL
+  ═══════════════════════════════════════════════════════════════════ -->
+  <div class="auth-panel">
+    <div class="auth-card">
+
+      <div class="auth-wordmark">⚡ FlashBite</div>
+
+      <!-- Tab switcher -->
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
+        <button class="tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- ── SIGN IN FORM ──────────────────────────────────────────── -->
+      <div class="form-panel active" id="panel-signin">
+        <div class="error-box" id="signin-error"></div>
+
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="si-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <input type="password" id="si-password" class="has-toggle" placeholder="••••••••" autocomplete="current-password" />
+            <button class="pw-toggle" type="button" onclick="togglePw('si-password', this)" aria-label="Toggle password">
+              <svg id="eye-si" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="signin-btn" onclick="doSignIn()">
+          Sign In
+        </button>
+      </div>
+
+      <!-- ── REGISTER FORM ─────────────────────────────────────────── -->
+      <div class="form-panel" id="panel-register">
+        <div class="error-box" id="register-error"></div>
+
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="reg-name" placeholder="Jane Smith" autocomplete="name" />
+        </div>
+
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <input type="password" id="reg-password" class="has-toggle" placeholder="Create a strong password" autocomplete="new-password" />
+            <button class="pw-toggle" type="button" onclick="togglePw('reg-password', this)" aria-label="Toggle password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Phone <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+          <input type="tel" id="reg-phone" placeholder="+1 (555) 000-0000" autocomplete="tel" />
+        </div>
+
+        <div class="form-group">
+          <label>Account Type</label>
+          <div class="radio-group">
+            <div class="radio-pill">
+              <input type="radio" name="account-type" id="type-customer" value="CUSTOMER" checked />
+              <label for="type-customer">👤 Customer</label>
+            </div>
+            <div class="radio-pill">
+              <input type="radio" name="account-type" id="type-restaurant" value="RESTAURANT" />
+              <label for="type-restaurant">🍽️ Restaurant Partner</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Conditional restaurant fields -->
+        <div class="restaurant-fields" id="restaurant-fields">
+          <div class="form-group">
+            <label>Restaurant Name</label>
+            <input type="text" id="reg-restaurant-name" placeholder="e.g. Burger Palace" />
+          </div>
+          <div class="form-group">
+            <label>Location / City</label>
+            <input type="text" id="reg-restaurant-location" placeholder="e.g. Austin, TX" />
+          </div>
+        </div>
+
+        <button class="btn-primary" id="register-btn" onclick="doRegister()">
+          Create Account
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ─────────────────────────────────────────────────────────────────
+     CONFIGURATION
+  ───────────────────────────────────────────────────────────────── */
+  const API = ''; // Same-origin — no prefix needed
+
+  /* ─────────────────────────────────────────────────────────────────
+     ON LOAD: Redirect if already authenticated
+  ───────────────────────────────────────────────────────────────── */
+  (function checkAuth() {
+    const token = localStorage.getItem('fb_token');
+    const user  = JSON.parse(localStorage.getItem('fb_user') || 'null');
+    if (token && user) redirectByRole(user.role);
+  })();
+
+  /* ─────────────────────────────────────────────────────────────────
+     ROLE-BASED REDIRECT
+  ───────────────────────────────────────────────────────────────── */
+  function redirectByRole(role) {
+    if (role === 'CUSTOMER')         window.location.href = '/customer.html';
+    else if (role === 'RESTAURANT_ADMIN') window.location.href = '/restaurant.html';
+    else if (role === 'KITCHEN_STAFF')    window.location.href = '/restaurant.html';
+    else if (role === 'SUPER_ADMIN')      window.location.href = '/admin.html';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     TAB SWITCHER
+  ───────────────────────────────────────────────────────────────── */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     PASSWORD SHOW / HIDE TOGGLE
+  ───────────────────────────────────────────────────────────────── */
+  function togglePw(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    // Swap SVG icon between eye and eye-off
+    btn.innerHTML = isHidden
+      ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+           <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+           <line x1="1" y1="1" x2="23" y2="23"/>
+         </svg>`
+      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+         </svg>`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ERROR DISPLAY
+  ───────────────────────────────────────────────────────────────── */
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+  function clearError(id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('visible');
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     BUTTON LOADING STATE
+  ───────────────────────────────────────────────────────────────── */
+  function setLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? `<div class="spinner"></div> ${label}`
+      : label;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     SIGN IN
+  ───────────────────────────────────────────────────────────────── */
+  async function doSignIn() {
+    clearError('signin-error');
+
+    const email    = document.getElementById('si-email').value.trim();
+    const password = document.getElementById('si-password').value;
+
+    if (!email || !password) {
+      showError('signin-error', 'Please enter both email and password.');
+      return;
+    }
+
+    setLoading('signin-btn', true, 'Signing in…');
+
+    try {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError('signin-error', data.error || 'Sign in failed. Please try again.');
+        return;
+      }
+
+      // Persist credentials
+      localStorage.setItem('fb_token', data.token);
+      localStorage.setItem('fb_user', JSON.stringify(data.user));
+
+      // Route by role
+      redirectByRole(data.user.role);
+
+    } catch (err) {
+      showError('signin-error', 'Network error — please check your connection.');
+    } finally {
+      setLoading('signin-btn', false, 'Sign In');
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     REGISTER
+  ───────────────────────────────────────────────────────────────── */
+  async function doRegister() {
+    clearError('register-error');
+
+    const name        = document.getElementById('reg-name').value.trim();
+    const email       = document.getElementById('reg-email').value.trim();
+    const password    = document.getElementById('reg-password').value;
+    const phone       = document.getElementById('reg-phone').value.trim();
+    const accountType = document.querySelector('input[name="account-type"]:checked').value;
+
+    if (!name || !email || !password) {
+      showError('register-error', 'Name, email, and password are required.');
+      return;
+    }
+
+    // Build request body
+    const body = { name, email, password, accountType };
+    if (phone) body.phone = phone;
+
+    if (accountType === 'RESTAURANT') {
+      const restaurantName     = document.getElementById('reg-restaurant-name').value.trim();
+      const restaurantLocation = document.getElementById('reg-restaurant-location').value.trim();
+      if (!restaurantName) {
+        showError('register-error', 'Please enter your restaurant name.');
+        return;
+      }
+      body.restaurantName     = restaurantName;
+      body.restaurantLocation = restaurantLocation;
+    }
+
+    setLoading('register-btn', true, 'Creating account…');
+
+    try {
+      const res = await fetch(`${API}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError('register-error', data.error || 'Registration failed. Please try again.');
+        return;
+      }
+
+      // Persist credentials
+      localStorage.setItem('fb_token', data.token);
+      localStorage.setItem('fb_user', JSON.stringify(data.user));
+
+      // Route by role
+      redirectByRole(data.user.role);
+
+    } catch (err) {
+      showError('register-error', 'Network error — please check your connection.');
+    } finally {
+      setLoading('register-btn', false, 'Create Account');
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ACCOUNT TYPE TOGGLE — show/hide restaurant fields
+  ───────────────────────────────────────────────────────────────── */
+  document.querySelectorAll('input[name="account-type"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const fields = document.getElementById('restaurant-fields');
+      if (radio.value === 'RESTAURANT' && radio.checked) {
+        fields.classList.add('open');
+      } else {
+        fields.classList.remove('open');
+      }
+    });
+  });
+
+  /* ─────────────────────────────────────────────────────────────────
+     KEYBOARD — submit on Enter
+  ───────────────────────────────────────────────────────────────── */
+  document.getElementById('panel-signin').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSignIn();
+  });
+  document.getElementById('panel-register').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doRegister();
+  });
+</script>
+</body>
+</html>

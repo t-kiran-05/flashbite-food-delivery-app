@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite | Multi-Tenant Food Delivery Engine</title>
+  <style>
+    :root {
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: #182234;
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+    .brand span { color: var(--text); }
+    .nav-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+    .tech-stack-badge {
+      font-size: 0.75rem;
+      background: rgba(249, 115, 22, 0.1);
+      color: var(--primary);
+      border: 1px solid rgba(249, 115, 22, 0.3);
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .user-badge {
+      font-size: 0.85rem;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--border); }
+    .btn-google { background: #4285f4; color: white; display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; margin-top: 0.75rem; }
+
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; width: 100%; flex: 1; display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
+
+    .tenant-bar {
+      grid-column: 1 / -1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tenant-select {
+      background: var(--bg-dark);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+    .food-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .food-img { height: 140px; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+    .food-details { padding: 1rem; flex: 1; display: flex; flex-direction: column; }
+    .food-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .food-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; flex: 1; }
+    .food-price-bar { display: flex; justify-content: space-between; align-items: center; }
+    .food-price { font-size: 1.2rem; font-weight: 800; color: #38bdf8; }
+
+    .cart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      height: fit-content;
+      position: sticky;
+      top: 5rem;
+    }
+    .cart-items { margin: 1rem 0; max-height: 250px; overflow-y: auto; }
+    .cart-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .cart-total { display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; margin: 1rem 0; }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 440px;
+      padding: 2rem;
+    }
+    .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tab { flex: 1; text-align: center; padding: 0.75rem; cursor: pointer; color: var(--text-muted); font-weight: 600; }
+    .tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .form-group input, .form-group select { width: 100%; padding: 0.75rem; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px; color: #fff; }
+
+    .pwd-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.25; }
+
+    .status-toast {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      display: none;
+    }
+    .status-success { background: #064e3b; color: #6ee7b7; border: 1px solid #047857; display: block; }
+    .status-error { background: #7f1d1d; color: #fca5a5; border: 1px solid #b91c1c; display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      ⚡ FlashBite <span>Engine</span>
+      <span class="tech-stack-badge">Powered by Kafka & Redis</span>
+    </div>
+    <div class="nav-actions">
+      <!-- Dashboard & Metrics Buttons -->
+      <button id="navDashboardBtn" class="btn btn-outline">📈 Live Orders Dashboard</button>
+      <button id="navMetricsBtn" class="btn btn-outline">📊 Live Metrics</button>
+      
+      <!-- Unauthenticated Nav Actions -->
+      <div id="loggedOutActions" style="display: flex; gap: 0.75rem;">
+        <button id="openSignInBtn" class="btn btn-outline">Sign In</button>
+        <button id="openSignUpBtn" class="btn btn-primary">Register</button>
+      </div>
+
+      <!-- Authenticated Nav Actions -->
+      <div id="loggedInActions" style="display: none; gap: 0.75rem; align-items: center;">
+        <div class="user-badge">
+          <span>👤</span>
+          <span id="userDisplayEmail">user@example.com</span>
+        </div>
+        <button id="logoutBtn" class="btn btn-outline">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="tenant-bar">
+      <div>
+        <h3>Select Merchant Branch (Tenant Domain)</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted)">Each tenant routes orders independently through partitioned Kafka events.</p>
+      </div>
+      <select id="tenantSelect" class="tenant-select">
+        <option value="tenant_001">Downtown Grill (tenant_001)</option>
+        <option value="tenant_002">Urban Bistro (tenant_002)</option>
+      </select>
+    </div>
+
+    <section>
+      <h2>Featured Menu</h2>
+      <div id="menuGrid" class="menu-grid"></div>
+    </section>
+
+    <aside class="cart-card">
+      <h3>Your Cart</h3>
+      <div id="cartItems" class="cart-items">
+        <p style="color:var(--text-muted); font-size:0.9rem;">Your cart is currently empty.</p>
+      </div>
+
+      <div class="cart-total">
+        <span>Total:</span>
+        <span id="cartTotalAmount">$0.00</span>
+      </div>
+
+      <div class="form-group">
+        <label>Customer Name</label>
+        <input type="text" id="custName" value="Alex Johnson" />
+      </div>
+
+      <div class="form-group">
+        <label>Delivery Address</label>
+        <input type="text" id="custAddress" value="452 Innovation Way, Suite 100" />
+      </div>
+
+      <button id="placeOrderBtn" class="btn btn-primary" style="width:100%">🚀 Submit Multi-Tenant Order</button>
+      <div id="orderStatusToast" class="status-toast"></div>
+    </aside>
+  </main>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="modal-overlay">
+    <div class="modal">
+      <div class="auth-tabs">
+        <div id="signInTab" class="tab active">Sign In</div>
+        <div id="signUpTab" class="tab">Sign Up</div>
+      </div>
+
+      <!-- Sign In Form -->
+      <form id="signInForm">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="signInEmail" placeholder="user@example.com" required />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="signInPassword" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+      </form>
+
+      <!-- Sign Up Form -->
+      <form id="signUpForm" style="display: none;">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="signUpEmail" placeholder="user@example.com" required />
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <input 
+            type="password" 
+            id="signUpPassword" 
+            placeholder="••••••••" 
+            required 
+            minlength="8" 
+            maxlength="32"
+            pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&#]).{8,32}"
+            title="8-32 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character (@$!%*?&#)"
+          />
+          <div class="pwd-hint">
+            Must contain 8–32 chars: 1 uppercase, 1 lowercase, 1 number, and 1 special char (@$!%*?&#).
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tenant / Merchant Branch</label>
+          <select id="signUpTenantId">
+            <option value="tenant_001">Downtown Grill (tenant_001)</option>
+            <option value="tenant_002">Urban Bistro (tenant_002)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Account Role</label>
+          <select id="signUpRole">
+            <option value="customer">Customer</option>
+            <option value="restaurant">Restaurant Operator</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%">Create Account</button>
+      </form>
+
+      <div style="margin: 1.5rem 0; text-align: center; color: var(--text-muted); font-size:0.85rem;">OR</div>
+
+      <!-- Google OAuth -->
+      <button id="googleOAuthBtn" class="btn btn-google">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M21.35 11.1H12v3.8h5.4c-.2 1.2-.9 2.3-2 3.1v2.5h3.2c1.9-1.7 3-4.3 3-7.4 0-.7-.1-1.4-.2-2zm-9.35 9.9c2.7 0 4.9-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6c1.7 3.3 5.2 5.4 9.2 5.4z"/><path fill="#fff" d="M6.4 13c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V6.4H3.1C2.4 7.8 2 9.4 2 11s.4 3.2 1.1 4.6l3.3-2.6z"/><path fill="#fff" d="M12 5c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.2 14.7 1.5 12 1.5 8 1.5 4.5 3.6 2.8 6.9l3.3 2.6c.8-2.4 3-4.5 5.9-4.5z"/></svg>
+        Continue with Google
+      </button>
+
+      <button id="closeAuthBtn" class="btn btn-outline" style="width:100%; margin-top:1rem;">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+  function parseJwt(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getActiveTenantId() {
+    const token = localStorage.getItem('token');
+    if (token) {
+      const decoded = parseJwt(token);
+      if (decoded && decoded.tenantId) return decoded.tenantId;
+    }
+    return document.getElementById('tenantSelect').value || 'tenant_001';
+  }
+
+  // Navigation Handlers with Tenant Query Parameters
+  document.getElementById('navDashboardBtn').addEventListener('click', () => {
+    const activeTenant = getActiveTenantId();
+    window.location.href = `/dashboard.html?tenantId=${encodeURIComponent(activeTenant)}`;
+  });
+
+  document.getElementById('navMetricsBtn').addEventListener('click', () => {
+    const activeTenant = getActiveTenantId();
+    window.location.href = `/metrics.html?tenantId=${encodeURIComponent(activeTenant)}`;
+  });
+
+  const MENU_ITEMS = [
+    { id: 'item_1', name: 'Artisanal Pepperoni Pizza', price: 16.99, prep: 300, icon: '🍕', desc: 'Slow-fermented dough with aged mozzarella.' },
+    { id: 'item_2', name: 'Truffle Double Cheeseburger', price: 14.50, prep: 240, icon: '🍔', desc: 'Angus beef patty, black truffle aioli, brioche bun.' },
+    { id: 'item_3', name: 'Crispy Buffalo Wings (10pcs)', price: 12.00, prep: 180, icon: '🍗', desc: 'Glazed in authentic cayenne pepper sauce.' },
+    { id: 'item_4', name: 'Craft IPA / Sparkling Water', price: 4.50, prep: 30, icon: '🥤', desc: 'Chilled signature beverages.' }
+  ];
+
+  let cart = [];
+
+  function syncAuthState() {
+    const token = localStorage.getItem('token');
+    const loggedInActions = document.getElementById('loggedInActions');
+    const loggedOutActions = document.getElementById('loggedOutActions');
+    const userDisplayEmail = document.getElementById('userDisplayEmail');
+    const custNameInput = document.getElementById('custName');
+
+    if (token) {
+      const decoded = parseJwt(token);
+      if (decoded && decoded.exp * 1000 > Date.now()) {
+        const userEmail = decoded.email || localStorage.getItem('userEmail') || 'Authenticated User';
+        const userTenant = decoded.tenantId;
+
+        userDisplayEmail.innerText = userEmail;
+        loggedInActions.style.display = 'flex';
+        loggedOutActions.style.display = 'none';
+
+        if (custNameInput.value === 'Alex Johnson' || !custNameInput.value) {
+          custNameInput.value = userEmail;
+        }
+        if (userTenant) {
+          document.getElementById('tenantSelect').value = userTenant;
+        }
+        return;
+      } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userEmail');
+      }
+    }
+
+    loggedInActions.style.display = 'none';
+    loggedOutActions.style.display = 'flex';
+  }
+
+  const menuGrid = document.getElementById('menuGrid');
+  MENU_ITEMS.forEach(item => {
+    menuGrid.innerHTML += `
+      <div class="food-card">
+        <div class="food-img">${item.icon}</div>
+        <div class="food-details">
+          <div class="food-title">${item.name}</div>
+          <div class="food-desc">${item.desc}</div>
+          <div class="food-price-bar">
+            <span class="food-price">$${item.price.toFixed(2)}</span>
+            <button class="btn btn-primary" onclick="addToCart('${item.id}')">+ Add</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  window.addToCart = function(itemId) {
+    const item = MENU_ITEMS.find(i => i.id === itemId);
+    cart.push(item);
+    renderCart();
+  };
+
+  function renderCart() {
+    const cartItems = document.getElementById('cartItems');
+    const cartTotalAmount = document.getElementById('cartTotalAmount');
+    
+    if (cart.length === 0) {
+      cartItems.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem;">Your cart is currently empty.</p>`;
+      cartTotalAmount.innerText = '$0.00';
+      return;
+    }
+
+    cartItems.innerHTML = cart.map((i) => `
+      <div class="cart-item">
+        <span>${i.name}</span>
+        <b>$${i.price.toFixed(2)}</b>
+      </div>
+    `).join('');
+
+    const total = cart.reduce((acc, curr) => acc + curr.price, 0);
+    cartTotalAmount.innerText = `$${total.toFixed(2)}`;
+  }
+
+  document.getElementById('placeOrderBtn').addEventListener('click', async () => {
+    const toast = document.getElementById('orderStatusToast');
+    if (cart.length === 0) {
+      toast.className = 'status-toast status-error';
+      toast.innerText = 'Please add at least one item to your cart.';
+      return;
+    }
+
+    const tenantId = document.getElementById('tenantSelect').value;
+    const prepTimeSeconds = Math.max(...cart.map(i => i.prep));
+    const authToken = localStorage.getItem('token');
+
+    const groupedItems = cart.reduce((acc, item) => {
+      const existing = acc.find(i => i.name === item.name);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        acc.push({
+          name: item.name,
+          price: Number(item.price),
+          qty: 1
+        });
+      }
+      return acc;
+    }, []);
+
+    toast.className = 'status-toast';
+    toast.style.display = 'block';
+    toast.innerText = 'Publishing order to Kafka...';
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ 
+          tenantId, 
+          items: groupedItems, 
+          prepTimeSeconds 
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.className = 'status-toast status-success';
+        toast.innerText = `Order Emitted! ID: ${data.order._id || data.order.id}`;
+        cart = [];
+        renderCart();
+      } else {
+        const errorMsg = data.errors ? data.errors.map(e => e.msg).join(', ') : (data.error || 'Order dispatch failed');
+        throw new Error(errorMsg);
+      }
+    } catch (err) {
+      toast.className = 'status-toast status-error';
+      toast.innerText = `Error: ${err.message}`;
+    }
+  });
+
+  const authModal = document.getElementById('authModal');
+  const signInTab = document.getElementById('signInTab');
+  const signUpTab = document.getElementById('signUpTab');
+  const signInForm = document.getElementById('signInForm');
+  const signUpForm = document.getElementById('signUpForm');
+
+  function openAuth(mode = 'login') {
+    authModal.style.display = 'flex';
+    if (mode === 'signup') {
+      signUpTab.classList.add('active');
+      signInTab.classList.remove('active');
+      signUpForm.style.display = 'block';
+      signInForm.style.display = 'none';
+      document.getElementById('signUpTenantId').value = document.getElementById('tenantSelect').value;
+    } else {
+      signInTab.classList.add('active');
+      signUpTab.classList.remove('active');
+      signInForm.style.display = 'block';
+      signUpForm.style.display = 'none';
+    }
+  }
+
+  document.getElementById('openSignInBtn').addEventListener('click', () => openAuth('login'));
+  document.getElementById('openSignUpBtn').addEventListener('click', () => openAuth('signup'));
+  document.getElementById('closeAuthBtn').addEventListener('click', () => authModal.style.display = 'none');
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch(e) {}
+    localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    syncAuthState();
+  });
+
+  signInTab.addEventListener('click', () => openAuth('login'));
+  signUpTab.addEventListener('click', () => openAuth('signup'));
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+      localStorage.setItem('token', token);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    syncAuthState();
+  });
+
+  signInForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signInEmail').value.trim().toLowerCase();
+    const password = document.getElementById('signInPassword').value;
+    const tenantId = document.getElementById('tenantSelect').value;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, password, tenantId })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          if (data.user && data.user.email) localStorage.setItem('userEmail', data.user.email);
+        }
+        syncAuthState();
+        authModal.style.display = 'none';
+      } else {
+        const errMsg = data.errors ? data.errors.map(err => err.msg).join(', ') : (data.error || 'Invalid credentials');
+        alert(`Login failed: ${errMsg}`);
+      }
+    } catch (err) {
+      alert('Server authentication error');
+    }
+  });
+
+  signUpForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signUpEmail').value.trim().toLowerCase();
+    const password = document.getElementById('signUpPassword').value;
+    const tenantId = document.getElementById('signUpTenantId').value;
+    const role = document.getElementById('signUpRole').value;
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, password, tenantId, role })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('userEmail', email);
+        }
+        alert('Account created! You are now logged in.');
+        syncAuthState();
+        authModal.style.display = 'none';
+      } else {
+        const errMsg = data.errors ? data.errors.map(err => `• ${err.msg}`).join('\n') : (data.error || 'Registration failed');
+        alert(`Registration Validation Errors:\n\n${errMsg}`);
+      }
+    } catch (err) {
+      alert('Server registration error');
+    }
+  });
+
+  document.getElementById('googleOAuthBtn').addEventListener('click', () => {
+    window.location.href = '/api/auth/google';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,775 @@
+<!-- <!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite — Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────────── */
+    :root {
+      --bg-primary:    #0f172a;
+      --bg-card:       #1e293b;
+      --bg-card-hover: #243147;
+      --accent:        #f97316;
+      --accent-hover:  #ea6c0a;
+      --accent-glow:   rgba(249,115,22,0.15);
+      --border:        #334155;
+      --border-light:  #475569;
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #64748b;
+      --success:       #10b981;
+      --warning:       #f59e0b;
+      --danger:        #ef4444;
+      --info:          #3b82f6;
+      --radius:        12px;
+      --radius-sm:     8px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.4);
+      --shadow-accent: 0 0 24px rgba(249,115,22,0.2);
+      --transition:    all 0.2s ease;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font);
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ─────────────────────────────────────────────────── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 64px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-left  { display: flex; align-items: center; gap: 16px; }
+    .nav-right { display: flex; align-items: center; gap: 14px; }
+    .nav-logo {
+      font-size: 1.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-branch {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .nav-tenant-badge {
+      font-size: 0.72rem;
+      font-family: 'Courier New', monospace;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-radius: 50px;
+      padding: 3px 10px;
+      font-weight: 700;
+    }
+
+    /* ── Live Indicator ─────────────────────────────────────────── */
+    .live-dot {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .live-dot .dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: var(--transition);
+    }
+    .live-dot.connected { color: var(--success); }
+    .live-dot.connected .dot {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse-live 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      transition: var(--transition);
+    }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Page Body ──────────────────────────────────────────────── */
+    .page { padding: 28px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Performance Bar ────────────────────────────────────────── */
+    .perf-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .metric-icon { font-size: 2rem; line-height: 1; }
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-label { font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px; font-weight: 600; }
+
+    /* ── Section Header ─────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .section-title { font-size: 1.3rem; font-weight: 700; }
+    .queue-badge {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-radius: 50px;
+      padding: 3px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    /* ── Order Cards Grid ───────────────────────────────────────── */
+    .queue-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── Empty State ────────────────────────────────────────────── */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 80px 40px;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+    .empty-state .empty-emoji { font-size: 3rem; display: block; margin-bottom: 12px; }
+
+    /* ── Order Card ─────────────────────────────────────────────── */
+    .order-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--info);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: var(--transition);
+      animation: slide-in 0.3s ease;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .order-card[data-status="PREPARING"]        { border-left-color: var(--accent); }
+    .order-card[data-status="OUT_FOR_DELIVERY"] { border-left-color: var(--info); }
+    .order-card[data-status="DELIVERED"]        { border-left-color: var(--success); opacity: 0.7; }
+
+    .order-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .order-id-badge {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(59,130,246,0.1);
+      color: var(--info);
+      border-radius: 50px;
+      padding: 3px 10px;
+    }
+    .time-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(245,158,11,0.1);
+      color: var(--warning);
+      border-radius: 50px;
+      padding: 3px 10px;
+    }
+
+    /* ── Status Badge ───────────────────────────────────────────── */
+    .status-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 50px;
+      padding: 3px 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-received  { background: rgba(59,130,246,0.15);  color: var(--info); }
+    .badge-preparing { background: rgba(245,158,11,0.15);  color: var(--warning); }
+    .badge-delivery  { background: rgba(249,115,22,0.15);  color: var(--accent); }
+    .badge-delivered { background: rgba(16,185,129,0.15);  color: var(--success); }
+
+    /* ── Items Checklist ────────────────────────────────────────── */
+    .items-list { margin-bottom: 16px; }
+    .items-list-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      cursor: pointer;
+      user-select: none;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-check {
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+      transition: var(--transition);
+    }
+    .item-row.checked .item-check {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+    .item-row.checked .item-name { text-decoration: line-through; color: var(--text-muted); }
+    .item-name { font-size: 0.88rem; color: var(--text-primary); flex: 1; }
+    .item-qty  { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+
+    /* ── Action Buttons ─────────────────────────────────────────── */
+    .action-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .btn-action {
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 9px 6px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 700;
+      transition: var(--transition);
+      line-height: 1.2;
+    }
+    .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-preparing  { background: var(--accent-glow); color: var(--accent); }
+    .btn-preparing:hover:not(:disabled) { background: var(--accent); color: #fff; }
+    .btn-ready      { background: rgba(59,130,246,0.12); color: var(--info); }
+    .btn-ready:hover:not(:disabled)     { background: var(--info); color: #fff; }
+    .btn-complete   { background: rgba(16,185,129,0.12); color: var(--success); }
+    .btn-complete:hover:not(:disabled)  { background: var(--success); color: #fff; }
+
+    /* ── Toast ──────────────────────────────────────────────────── */
+    .toast-container { position: fixed; top: 80px; right: 28px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: var(--shadow);
+      animation: toast-in 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      min-width: 280px;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(60px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .perf-bar { grid-template-columns: 1fr; }
+      .queue-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAVBAR
+═══════════════════════════════════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="nav-left">
+    <span class="nav-logo">⚡ FlashBite Kitchen</span>
+    <span class="nav-branch" id="nav-branch">—</span>
+    <span class="nav-tenant-badge" id="nav-tenant">—</span>
+  </div>
+  <div class="nav-right">
+    <div class="live-dot" id="live-indicator">
+      <div class="dot"></div>
+      <span id="live-text">Connecting…</span>
+    </div>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE BODY
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- Performance Bar -->
+  <div class="perf-bar">
+    <div class="metric-card">
+      <div class="metric-icon">⚡</div>
+      <div>
+        <div class="metric-value" id="metric-opm">0</div>
+        <div class="metric-label">Orders / Min</div>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">⏱️</div>
+      <div>
+        <div class="metric-value" id="metric-prep">—</div>
+        <div class="metric-label">Avg Prep Time (min)</div>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">📊</div>
+      <div>
+        <div class="metric-value" id="metric-total">0</div>
+        <div class="metric-label">Total Branch Orders</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue Section -->
+  <div class="section-header">
+    <span class="section-title">🍳 Live Kitchen Queue</span>
+    <span class="queue-badge" id="queue-badge">0 orders</span>
+  </div>
+
+  <div class="queue-grid" id="queue-grid">
+    <div class="empty-state">
+      <span class="empty-emoji">🎉</span>
+      No orders yet. You're all caught up!
+    </div>
+  </div>
+
+</div>
+
+<script>
+  /* ─────────────────────────────────────────────────────────────────
+     AUTH GUARD
+  ───────────────────────────────────────────────────────────────── */
+  const token = localStorage.getItem('fb_token');
+  const user  = JSON.parse(localStorage.getItem('fb_user') || 'null');
+
+  if (!token || !user || !['RESTAURANT_ADMIN', 'KITCHEN_STAFF'].includes(user.role)) {
+    window.location.href = '/login.html';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     STATE
+  ───────────────────────────────────────────────────────────────── */
+  let orders = {};       // keyed by orderId
+  let opmCount = 0;      // orders this minute
+  let totalOrders = 0;   // total order count
+  let prepTimes  = [];   // array of prep durations in minutes
+
+  /* ─────────────────────────────────────────────────────────────────
+     POPULATE NAVBAR
+  ───────────────────────────────────────────────────────────────── */
+  document.getElementById('nav-branch').textContent = user?.name || 'Kitchen';
+  document.getElementById('nav-tenant').textContent = user?.tenantId || 'No Tenant';
+
+  /* ─────────────────────────────────────────────────────────────────
+     STATUS BADGE CLASS HELPER
+  ───────────────────────────────────────────────────────────────── */
+  function statusBadgeClass(status) {
+    const map = {
+      'ORDER_RECEIVED':   'badge-received',
+      'RECEIVED':         'badge-received',
+      'PREPARING':        'badge-preparing',
+      'OUT_FOR_DELIVERY': 'badge-delivery',
+      'DELIVERED':        'badge-delivered',
+    };
+    return map[status] || 'badge-received';
+  }
+
+  function statusLabel(status) {
+    const map = {
+      'ORDER_RECEIVED':   'Received',
+      'RECEIVED':         'Received',
+      'PREPARING':        'Preparing',
+      'OUT_FOR_DELIVERY': 'Out for Delivery',
+      'DELIVERED':        'Delivered',
+    };
+    return map[status] || status;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     RENDER ORDER CARD
+  ───────────────────────────────────────────────────────────────── */
+  function renderOrderCard(order) {
+    const orderId = order.orderId || order.id || '—';
+    const status  = order.status || 'ORDER_RECEIVED';
+    const items   = order.items   || [];
+    const receivedAt = order.createdAt ? new Date(order.createdAt) : new Date();
+
+    // Track in state
+    orders[orderId] = { ...order, receivedAt, status };
+
+    // Remove empty state
+    const empty = document.querySelector('.empty-state');
+    if (empty) empty.remove();
+
+    // Build items HTML
+    const itemsHtml = items.map((item, i) => `
+      <div class="item-row" id="item-row-${orderId}-${i}" onclick="toggleItemCheck('${orderId}', ${i})">
+        <div class="item-check" id="item-check-${orderId}-${i}"></div>
+        <span class="item-name">${item.name || item.itemId}</span>
+        <span class="item-qty">×${item.quantity || 1}</span>
+      </div>
+    `).join('');
+
+    const card = document.createElement('div');
+    card.className  = 'order-card';
+    card.id         = `order-card-${orderId}`;
+    card.setAttribute('data-status', status);
+    card.innerHTML = `
+      <div class="order-card-header">
+        <span class="order-id-badge">#${orderId.slice(-8).toUpperCase()}</span>
+        <span class="time-badge" id="time-${orderId}">Just now</span>
+        <span class="status-badge ${statusBadgeClass(status)}" id="status-badge-${orderId}">${statusLabel(status)}</span>
+      </div>
+
+      <div class="items-list">
+        <div class="items-list-label">Items</div>
+        ${itemsHtml || '<div style="color:var(--text-muted);font-size:0.85rem;">No items</div>'}
+      </div>
+
+      <div class="action-row">
+        <button class="btn-action btn-preparing" id="btn-prep-${orderId}"
+          onclick="updateStatus('${orderId}', 'PREPARING')">
+          🍳 Mark Preparing
+        </button>
+        <button class="btn-action btn-ready" id="btn-ready-${orderId}"
+          onclick="updateStatus('${orderId}', 'OUT_FOR_DELIVERY')">
+          🚗 Mark Ready
+        </button>
+        <button class="btn-action btn-complete" id="btn-done-${orderId}"
+          onclick="updateStatus('${orderId}', 'DELIVERED')">
+          ✅ Complete
+        </button>
+      </div>
+    `;
+
+    document.getElementById('queue-grid').prepend(card);
+
+    // Start the elapsed-time ticker
+    startTimeTicker(orderId, receivedAt);
+
+    // Apply initial button states
+    applyButtonStates(orderId, status);
+    updateQueueBadge();
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ITEM CHECKBOX TOGGLE (visual only — no backend call)
+  ───────────────────────────────────────────────────────────────── */
+  function toggleItemCheck(orderId, index) {
+    const row   = document.getElementById(`item-row-${orderId}-${index}`);
+    const check = document.getElementById(`item-check-${orderId}-${index}`);
+    const isChecked = row.classList.toggle('checked');
+    check.textContent = isChecked ? '✓' : '';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ELAPSED TIME TICKER
+  ───────────────────────────────────────────────────────────────── */
+  function startTimeTicker(orderId, receivedAt) {
+    function tick() {
+      const el = document.getElementById(`time-${orderId}`);
+      if (!el) return; // card removed
+      const secs = Math.floor((Date.now() - receivedAt.getTime()) / 1000);
+      if (secs < 60) {
+        el.textContent = `${secs}s ago`;
+      } else {
+        const mins = Math.floor(secs / 60);
+        el.textContent = `${mins}m ${secs % 60}s ago`;
+      }
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     UPDATE ORDER STATUS (API call)
+  ───────────────────────────────────────────────────────────────── */
+  async function updateStatus(orderId, newStatus) {
+    // Optimistically update UI
+    applyButtonStates(orderId, newStatus);
+    updateOrderCard({ orderId, status: newStatus });
+
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method:  'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type':  'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(`❌ Failed: ${data.error || res.statusText}`, 'danger');
+        // Revert button states to old status
+        const oldStatus = orders[orderId]?.status;
+        if (oldStatus) applyButtonStates(orderId, oldStatus);
+      } else {
+        // Record prep time if status is DELIVERED
+        if (newStatus === 'DELIVERED' && orders[orderId]?.receivedAt) {
+          const mins = (Date.now() - orders[orderId].receivedAt.getTime()) / 60000;
+          prepTimes.push(mins);
+          updateAvgPrep();
+        }
+        orders[orderId] = { ...orders[orderId], status: newStatus };
+        showToast(`✅ Order ${orderId.slice(-6).toUpperCase()} → ${statusLabel(newStatus)}`, 'success');
+      }
+    } catch (err) {
+      showToast(`❌ Network error`, 'danger');
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     UPDATE ORDER CARD (from socket or after API call)
+  ───────────────────────────────────────────────────────────────── */
+  function updateOrderCard({ orderId, status }) {
+    const card   = document.getElementById(`order-card-${orderId}`);
+    const badge  = document.getElementById(`status-badge-${orderId}`);
+    if (!card || !badge) return;
+
+    card.setAttribute('data-status', status);
+    badge.className   = `status-badge ${statusBadgeClass(status)}`;
+    badge.textContent = statusLabel(status);
+    applyButtonStates(orderId, status);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     BUTTON STATE MANAGEMENT
+  ───────────────────────────────────────────────────────────────── */
+  function applyButtonStates(orderId, status) {
+    const prepBtn = document.getElementById(`btn-prep-${orderId}`);
+    const readyBtn= document.getElementById(`btn-ready-${orderId}`);
+    const doneBtn = document.getElementById(`btn-done-${orderId}`);
+    if (!prepBtn) return;
+
+    // Disable buttons for steps already passed
+    prepBtn.disabled  = ['PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
+    readyBtn.disabled = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
+    doneBtn.disabled  = ['DELIVERED'].includes(status);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     QUEUE BADGE UPDATE
+  ───────────────────────────────────────────────────────────────── */
+  function updateQueueBadge() {
+    const count = Object.keys(orders).filter(id => orders[id].status !== 'DELIVERED').length;
+    document.getElementById('queue-badge').textContent = `${count} order${count !== 1 ? 's' : ''}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     METRICS UPDATES
+  ───────────────────────────────────────────────────────────────── */
+  function updateAvgPrep() {
+    if (prepTimes.length === 0) { document.getElementById('metric-prep').textContent = '—'; return; }
+    const avg = prepTimes.reduce((a, b) => a + b, 0) / prepTimes.length;
+    document.getElementById('metric-prep').textContent = avg.toFixed(1);
+  }
+
+  // OPM: reset counter every 60 seconds
+  setInterval(() => {
+    document.getElementById('metric-opm').textContent = opmCount;
+    opmCount = 0;
+  }, 60000);
+
+  /* ─────────────────────────────────────────────────────────────────
+     NEW ORDER NOTIFICATION (title flash + audio beep + toast)
+  ───────────────────────────────────────────────────────────────── */
+  function flashNewOrderNotification(order) {
+    // Flash page title
+    let flashing = true;
+    const originalTitle = document.title;
+    const flashInterval = setInterval(() => {
+      document.title = flashing ? '🔔 NEW ORDER!' : originalTitle;
+      flashing = !flashing;
+    }, 500);
+    setTimeout(() => { clearInterval(flashInterval); document.title = originalTitle; }, 4000);
+
+    // Audio beep using Web Audio API
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain= ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+    } catch (e) { /* Audio not available */ }
+
+    // Toast
+    showToast(`🔔 New order received! #${(order.orderId || '').slice(-8).toUpperCase()}`, 'info');
+
+    // Update OPM counter
+    opmCount++;
+    totalOrders++;
+    document.getElementById('metric-total').textContent = totalOrders;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     LIVE INDICATOR
+  ───────────────────────────────────────────────────────────────── */
+  function setLiveIndicator(connected) {
+    const el   = document.getElementById('live-indicator');
+    const text = document.getElementById('live-text');
+    if (connected) {
+      el.classList.add('connected');
+      text.textContent = '🔴 LIVE';
+    } else {
+      el.classList.remove('connected');
+      text.textContent = 'Disconnected';
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     TOAST
+  ───────────────────────────────────────────────────────────────── */
+  function showToast(msg, type = 'success') {
+    const colorMap = { success: 'var(--success)', danger: 'var(--danger)', info: 'var(--info)' };
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast-item';
+    el.style.borderLeftColor = colorMap[type] || colorMap.success;
+    el.style.borderLeftWidth = '3px';
+    el.textContent = msg;
+    container.prepend(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     FETCH EXISTING ORDERS ON LOAD
+  ───────────────────────────────────────────────────────────────── */
+  async function loadExistingOrders() {
+    const tenantId = user?.tenantId;
+    if (!tenantId) return;
+
+    try {
+      const res = await fetch(`/api/orders?tenantId=${tenantId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.status === 404 || !res.ok) {
+        // Endpoint may not exist yet — show empty state gracefully
+        console.warn('[Kitchen] Orders endpoint returned', res.status);
+        return;
+      }
+
+      const data = await res.json();
+      const orderList = data.orders || data || [];
+
+      if (Array.isArray(orderList) && orderList.length > 0) {
+        orderList.forEach(order => renderOrderCard(order));
+        totalOrders = orderList.length;
+        document.getElementById('metric-total').textContent = totalOrders;
+      }
+    } catch (err) {
+      console.warn('[Kitchen] Failed to load orders:', err.message);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     SOCKET.IO
+  ───────────────────────────────────────────────────────────────── */
+  const socket = io({ auth: { token } });
+
+  // Connection established
+  socket.on('connect', () => {
+    console.log('[Socket] Connected:', socket.id);
+    setLiveIndicator(true);
+  });
+
+  // Connection lost
+  socket.on('disconnect', () => {
+    console.log('[Socket] Disconnected');
+    setLiveIndicator(false);
+  });
+
+  // New order arrives
+  socket.on('order:new', (order) => {
+    console.log('[Socket] order:new', order);
+    renderOrderCard(order);
+    flashNewOrderNotification(order);
+  });
+
+  // Order status updated (by another device / auto)
+  socket.on('order:status-update', (data) => {
+    console.log('[Socket] order:status-update', data);
+    updateOrderCard(data);
+  });
+
+  /* ─────────────────────────────────────────────────────────────────
+     LOGOUT
+  ───────────────────────────────────────────────────────────────── */
+  function logout() {
+    localStorage.removeItem('fb_token');
+    localStorage.removeItem('fb_user');
+    window.location.href = '/login.html';
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     INIT
+  ───────────────────────────────────────────────────────────────── */
+  loadExistingOrders();
+</script>
+</body>
+</html>

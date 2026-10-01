@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite | Live Metrics Dashboard</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #f97316;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg-dark); color: var(--text); min-height: 100vh; padding: 24px; }
+    
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 16px 24px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .tenant-badge {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(249, 115, 22, 0.4);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .status-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--danger);
+      display: inline-block;
+    }
+    .status-indicator.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    .metrics-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .metric-value { font-size: 2.25rem; font-weight: 800; color: var(--primary); }
+    .metric-label { font-size: 13px; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; }
+
+    .chart-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    canvas { max-height: 320px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚡ Live Metrics Dashboard</h1>
+    <span class="tenant-badge" id="tenantLabel">Tenant: Authorizing...</span>
+  </header>
+
+  <div class="status-bar">
+    <span class="status-indicator" id="statusDot"></span>
+    <span id="statusBar">Authenticating metrics stream...</span>
+  </div>
+
+  <div class="metrics-cards">
+    <div class="metric-card">
+      <div class="metric-value" id="ordersPerMin">0</div>
+      <div class="metric-label">Orders / Min</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value" id="totalOrders">0</div>
+      <div class="metric-label">Total Orders</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value" id="avgPrep">0s</div>
+      <div class="metric-label">Avg Prep Time</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value" id="lastCpu">0%</div>
+      <div class="metric-label">CPU Usage</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value" id="lastMemory">0%</div>
+      <div class="metric-label">Memory Usage</div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="ordersChart"></canvas>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    let token = urlParams.get('token') || localStorage.getItem('jwt_token');
+
+    if (!token) {
+      alert('Authentication required. Redirecting to login...');
+      window.location.href = '/login.html';
+    } else {
+      localStorage.setItem('jwt_token', token);
+    }
+
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(window.atob(base64));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    const payload = parseJwt(token);
+    if (payload && payload.tenantId) {
+      document.getElementById('tenantLabel').textContent = 'Tenant: ' + payload.tenantId;
+    }
+
+    const ctx = document.getElementById('ordersChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Orders per Minute',
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.1)',
+          data: [],
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y'
+        }, {
+          label: 'CPU %',
+          borderColor: '#f97316',
+          backgroundColor: 'rgba(249, 115, 22, 0.1)',
+          data: [],
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'y1'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#94a3b8' } }
+        },
+        plugins: { legend: { labels: { color: '#f8fafc' } } }
+      }
+    });
+
+    function parseNum(val) {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function updateUI(m) {
+      if (!m) return;
+      document.getElementById('ordersPerMin').textContent = parseNum(m.ordersPerMin);
+      document.getElementById('totalOrders').textContent = parseNum(m.totalOrders);
+      document.getElementById('avgPrep').textContent = parseNum(m.avgPrepSeconds || m.avgPrep).toFixed(1) + 's';
+      document.getElementById('lastCpu').textContent = parseNum(m.lastCpu || m.cpu).toFixed(1) + '%';
+      document.getElementById('lastMemory').textContent = parseNum(m.lastMemory || m.memory).toFixed(1) + '%';
+
+      const time = new Date().toLocaleTimeString();
+      chart.data.labels.push(time);
+      chart.data.datasets[0].data.push(parseNum(m.ordersPerMin));
+      chart.data.datasets[1].data.push(parseNum(m.lastCpu || m.cpu));
+
+      if (chart.data.labels.length > 20) {
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(ds => ds.data.shift());
+      }
+      chart.update();
+    }
+
+    // 1. Initial REST fetch with Authorization header
+    fetch('/metrics', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && data.metrics) updateUI(data.metrics); })
+      .catch(err => console.warn('Initial metrics fetch failed:', err));
+
+    // 2. Real-time stream with Auth Handshake
+    const socket = io({
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    const statusDot = document.getElementById('statusDot');
+    const statusBar = document.getElementById('statusBar');
+
+    socket.on('connect', () => {
+      statusDot.className = 'status-indicator online';
+      statusBar.textContent = '[Online] Metrics stream active (socket id: ' + socket.id + ')';
+    });
+
+    socket.on('disconnect', () => {
+      statusDot.className = 'status-indicator';
+      statusBar.textContent = '[Offline] Stream disconnected';
+    });
+
+    socket.on('metrics_update', (m) => updateUI(m));
+  </script>
+</body>
+</html>

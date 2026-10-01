@@ -1,0 +1,773 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite | Live Orders Dashboard</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    :root {
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: #182234;
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none; }
+    .brand span { color: var(--text); }
+    .tenant-badge {
+      background: rgba(249, 115, 22, 0.2);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; width: 100%; flex: 1; }
+
+    .status-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #statusDot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      display: inline-block;
+    }
+    #statusDot.connected { background: #22c55e; }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      background: var(--card-bg);
+      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-placed { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+    .status-preparing { background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+    .status-delivered { background: rgba(52, 211, 153, 0.2); color: #34d399; border: 1px solid #34d399; }
+
+    .placeholder {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="#" class="brand">
+      ⚡ FlashBite <span>Dashboard</span>
+    </a>
+    <span class="tenant-badge" id="tenantLabel">Tenant: Loading...</span>
+  </header>
+
+  <main>
+    <div class="status-bar">
+      <span id="statusDot"></span>
+      <span>Socket.IO: <strong id="statusText">Connecting...</strong></span>
+      <span>|</span>
+      <span>Total Orders Received: <strong id="orderCount">0</strong></span>
+    </div>
+
+    <div class="dashboard-header">
+      <div>
+        <h2>Live Multi-Tenant Orders Queue</h2>
+        <p style="color:var(--text-muted); font-size:0.85rem;">Streamed via Kafka & Redis Engine</p>
+      </div>
+    </div>
+
+    <div id="ordersContainer" class="orders-grid">
+      <div class="placeholder" id="placeholder">Waiting for live order events...</div>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    let tenantId = params.get('tenantId');
+    if (!tenantId) {
+      tenantId = prompt('Enter Tenant ID (e.g., "tenant_001"):') || 'default';
+    }
+
+    document.getElementById('tenantLabel').textContent = 'Tenant: ' + tenantId;
+
+    const socket = io({
+      query: { tenantId },
+      transports: ['websocket', 'polling']
+    });
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const orderCount = document.getElementById('orderCount');
+    const ordersContainer = document.getElementById('ordersContainer');
+    const placeholder = document.getElementById('placeholder');
+    let totalCount = 0;
+
+    socket.on('connect', () => {
+      statusDot.className = 'connected';
+      statusText.textContent = 'Connected (' + socket.id + ')';
+    });
+
+    socket.on('disconnect', () => {
+      statusDot.className = '';
+      statusText.textContent = 'Disconnected';
+    });
+
+    socket.on('connect_error', (err) => {
+      statusText.textContent = 'Connection Error: ' + err.message;
+    });
+
+    socket.on('newOrder', (order) => {
+      if (placeholder) placeholder.style.display = 'none';
+      totalCount++;
+      orderCount.textContent = totalCount;
+
+      const card = document.createElement('div');
+      card.className = 'order-card';
+
+      const status = (order.status || 'placed').toLowerCase();
+      let statusClass = 'status-placed';
+      if (status === 'preparing') statusClass = 'status-preparing';
+      if (status === 'delivered') statusClass = 'status-delivered';
+
+      const orderId = order.orderId || order._id || 'N/A';
+      const customer = order.customerId || order.customerName || 'Guest';
+      const prepTime = order.prepTimeSeconds || order.prepTime || 0;
+      const items = Array.isArray(order.items) ? order.items.join(', ') : (order.items || 'Standard Meal');
+
+      card.innerHTML = `
+        <div class="order-card-header">
+          <strong>Order #${orderId}</strong>
+          <span class="status-badge ${statusClass}">${status}</span>
+        </div>
+        <p style="font-size:0.9rem;"><strong>Customer:</strong> ${customer}</p>
+        <p style="font-size:0.85rem; color:var(--text-muted);">${items}</p>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:4px;">
+          <span>Prep Time: ${prepTime}s</span>
+          <span>${new Date().toLocaleTimeString()}</span>
+        </div>
+      `;
+
+      ordersContainer.prepend(card);
+
+      while (ordersContainer.children.length > 51) {
+        ordersContainer.removeChild(ordersContainer.lastChild);
+      }
+    });
+
+    socket.on('metrics_update', (metrics) => {
+      console.log('[Live Metrics Received]:', metrics);
+    });
+  </script>
+</body>
+</html> -->
+<!-- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite | Live Orders Dashboard</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    :root {
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: rgba(24, 34, 52, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none; }
+    .brand span { color: var(--text); }
+    .tenant-badge {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(249, 115, 22, 0.4);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; width: 100%; flex: 1; }
+
+    .status-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #statusDot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--danger);
+      display: inline-block;
+      transition: background 0.3s ease;
+    }
+    #statusDot.connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      background: var(--card-bg);
+      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .order-card:hover {
+      transform: translateY(-2px);
+      border-color: #475569;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-placed { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .status-preparing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.4); }
+    .status-delivered { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); }
+
+    .placeholder {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+      background: var(--card-bg);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="#" class="brand">
+      ⚡ FlashBite <span>Dashboard</span>
+    </a>
+    <span class="tenant-badge" id="tenantLabel">Tenant: Loading...</span>
+  </header>
+
+  <main>
+    <div class="status-bar">
+      <span id="statusDot"></span>
+      <span>Socket.IO: <strong id="statusText" style="color: var(--text);">Connecting...</strong></span>
+      <span>|</span>
+      <span>Total Orders Streamed: <strong id="orderCount" style="color: var(--primary);">0</strong></span>
+    </div>
+
+    <div class="dashboard-header">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 700;">Live Multi-Tenant Orders Queue</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 2px;">Streamed via Kafka & Redis Engine</p>
+      </div>
+    </div>
+
+    <div id="ordersContainer" class="orders-grid">
+      <div class="placeholder" id="placeholder">Waiting for incoming order events...</div>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    let tenantId = params.get('tenantId');
+    if (!tenantId) {
+      tenantId = prompt('Enter Tenant ID (e.g., "tenant_001"):') || 'default';
+    }
+
+    document.getElementById('tenantLabel').textContent = 'Tenant: ' + tenantId;
+
+    const socket = io({
+      query: { tenantId },
+      transports: ['websocket', 'polling']
+    });
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const orderCount = document.getElementById('orderCount');
+    const ordersContainer = document.getElementById('ordersContainer');
+    const placeholder = document.getElementById('placeholder');
+    let totalCount = 0;
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.innerText = str;
+      return div.innerHTML;
+    }
+
+    socket.on('connect', () => {
+      statusDot.className = 'connected';
+      statusText.textContent = 'Connected (' + socket.id + ')';
+    });
+
+    socket.on('disconnect', () => {
+      statusDot.className = '';
+      statusText.textContent = 'Disconnected';
+    });
+
+    socket.on('connect_error', (err) => {
+      statusDot.className = '';
+      statusText.textContent = 'Connection Error: ' + err.message;
+    });
+
+    socket.on('newOrder', (order) => {
+      if (placeholder && placeholder.parentNode) {
+        placeholder.remove();
+      }
+      
+      totalCount++;
+      orderCount.textContent = totalCount;
+
+      const card = document.createElement('div');
+      card.className = 'order-card';
+
+      const status = (order.status || 'placed').toLowerCase();
+      let statusClass = 'status-placed';
+      if (status === 'preparing') statusClass = 'status-preparing';
+      if (status === 'delivered') statusClass = 'status-delivered';
+
+      const orderId = escapeHtml(String(order.orderId || order._id || 'N/A'));
+      const customer = escapeHtml(String(order.customerId || order.customerName || 'Guest'));
+      const prepTime = escapeHtml(String(order.prepTimeSeconds || order.prepTime || 0));
+      const items = Array.isArray(order.items) 
+        ? escapeHtml(order.items.join(', ')) 
+        : escapeHtml(String(order.items || 'Standard Meal'));
+
+      card.innerHTML = `
+        <div class="order-card-header">
+          <strong style="font-size:0.95rem;">Order #${orderId}</strong>
+          <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+        </div>
+        <p style="font-size:0.9rem;"><strong>Customer:</strong> ${customer}</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); line-height: 1.4;">${items}</p>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top: auto; padding-top: 8px;">
+          <span>Prep Time: ${prepTime}s</span>
+          <span>${new Date().toLocaleTimeString()}</span>
+        </div>
+      `;
+
+      ordersContainer.prepend(card);
+
+      while (ordersContainer.children.length > 50) {
+        ordersContainer.removeChild(ordersContainer.lastChild);
+      }
+    });
+
+    socket.on('metrics_update', (metrics) => {
+      console.log('[Live Metrics Received]:', metrics);
+    });
+  </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashBite | Live Orders Dashboard</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    :root {
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: rgba(24, 34, 52, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none; }
+    .brand span { color: var(--text); }
+    .tenant-badge {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(249, 115, 22, 0.4);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; width: 100%; flex: 1; }
+
+    .status-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #statusDot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--danger);
+      display: inline-block;
+      transition: background 0.3s ease;
+    }
+    #statusDot.connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      background: var(--card-bg);
+      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .order-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-placed { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .status-preparing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.4); }
+    .status-delivered { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); }
+
+    .placeholder {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+      background: var(--card-bg);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="#" class="brand">
+      ⚡ FlashBite <span>Dashboard</span>
+    </a>
+    <span class="tenant-badge" id="tenantLabel">Tenant: Authorizing...</span>
+  </header>
+
+  <main>
+    <div class="status-bar">
+      <span id="statusDot"></span>
+      <span>Socket.IO: <strong id="statusText" style="color: var(--text);">Authenticating...</strong></span>
+      <span>|</span>
+      <span>Total Orders Streamed: <strong id="orderCount" style="color: var(--primary);">0</strong></span>
+    </div>
+
+    <div class="dashboard-header">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 700;">Live Multi-Tenant Orders Queue</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 2px;">Streamed via Kafka & Redis Engine</p>
+      </div>
+    </div>
+
+    <div id="ordersContainer" class="orders-grid">
+      <div class="placeholder" id="placeholder">Waiting for incoming order events...</div>
+    </div>
+  </main>
+
+  <script>
+    // 1. Retrieve JWT token from storage or URL override
+    const urlParams = new URLSearchParams(window.location.search);
+    let token = urlParams.get('token') || localStorage.getItem('jwt_token');
+
+    if (!token) {
+      alert('Authentication required. Redirecting to login...');
+      window.location.href = '/login.html';
+    } else {
+      localStorage.setItem('jwt_token', token);
+    }
+
+    // 2. Decode JWT payload to present Tenant ID
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(window.atob(base64));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    const payload = parseJwt(token);
+    if (payload && payload.tenantId) {
+      document.getElementById('tenantLabel').textContent = 'Tenant: ' + payload.tenantId;
+    }
+
+    // 3. Connect to Socket.IO with handshake JWT authentication
+    const socket = io({
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const orderCount = document.getElementById('orderCount');
+    const ordersContainer = document.getElementById('ordersContainer');
+    const placeholder = document.getElementById('placeholder');
+    let totalCount = 0;
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.innerText = str;
+      return div.innerHTML;
+    }
+
+    socket.on('connect', () => {
+      statusDot.className = 'connected';
+      statusText.textContent = 'Connected (' + socket.id + ')';
+    });
+
+    socket.on('disconnect', () => {
+      statusDot.className = '';
+      statusText.textContent = 'Disconnected';
+    });
+
+    socket.on('connect_error', (err) => {
+      statusDot.className = '';
+      statusText.textContent = 'Auth Error: ' + err.message;
+    });
+
+    socket.on('newOrder', (order) => {
+      if (placeholder && placeholder.parentNode) placeholder.remove();
+      
+      totalCount++;
+      orderCount.textContent = totalCount;
+
+      const card = document.createElement('div');
+      card.className = 'order-card';
+
+      const status = (order.status || 'placed').toLowerCase();
+      let statusClass = 'status-placed';
+      if (status === 'preparing') statusClass = 'status-preparing';
+      if (status === 'delivered') statusClass = 'status-delivered';
+
+      const orderId = escapeHtml(String(order.orderId || order._id || 'N/A'));
+      const customer = escapeHtml(String(order.customerId || order.customerName || 'Guest'));
+      const prepTime = escapeHtml(String(order.prepTimeSeconds || order.prepTime || 0));
+      const items = Array.isArray(order.items) 
+        ? escapeHtml(order.items.join(', ')) 
+        : escapeHtml(String(order.items || 'Standard Meal'));
+
+      card.innerHTML = `
+        <div class="order-card-header">
+          <strong style="font-size:0.95rem;">Order #${orderId}</strong>
+          <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+        </div>
+        <p style="font-size:0.9rem;"><strong>Customer:</strong> ${customer}</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); line-height: 1.4;">${items}</p>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top: auto; padding-top: 8px;">
+          <span>Prep Time: ${prepTime}s</span>
+          <span>${new Date().toLocaleTimeString()}</span>
+        </div>
+      `;
+
+      ordersContainer.prepend(card);
+
+      while (ordersContainer.children.length > 50) {
+        ordersContainer.removeChild(ordersContainer.lastChild);
+      }
+    });
+  </script>
+</body>
+</html>
